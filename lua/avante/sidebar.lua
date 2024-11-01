@@ -1248,7 +1248,9 @@ function Sidebar:create_selected_code()
         winid = self.input.winid,
       },
       buf_options = buf_options,
-      win_options = base_win_options,
+      win_options = vim.tbl_deep_extend("force", base_win_options, {
+        wrap = Config.windows.wrap,
+      }),
       position = "top",
       size = {
         height = selected_code_size + 3,
@@ -1431,7 +1433,7 @@ function Sidebar:create_input(opts)
       type = "win",
       winid = self.result.winid,
     },
-    win_options = vim.tbl_deep_extend("force", base_win_options, { signcolumn = "yes" }),
+    win_options = vim.tbl_deep_extend("force", base_win_options, { signcolumn = "yes", wrap = Config.windows.wrap }),
     position = get_position(),
     size = get_size(),
   })
@@ -1666,7 +1668,9 @@ function Sidebar:render(opts)
       bufhidden = "wipe",
       filetype = "Avante",
     }),
-    win_options = base_win_options,
+    win_options = vim.tbl_deep_extend("force", base_win_options, {
+      wrap = Config.windows.wrap,
+    }),
     size = {
       width = get_width(),
       height = get_height(),
