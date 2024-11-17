@@ -1395,6 +1395,31 @@ local generating_text = "**Generating response ...**\n"
 
 local hint_window = nil
 
+---Get content from all open buffers of the same filetype
+---@param target_ft string The filetype to match
+---@return table Contents of all matching buffers with their file paths
+local function get_same_filetype_buffers(target_ft, current_file)
+  local contents = {}
+
+  -- Get all buffers
+  for _, bufnr in ipairs(api.nvim_list_bufs()) do
+    -- Check if buffer is loaded and has matching filetype
+    if api.nvim_buf_is_loaded(bufnr) then
+      local ft = api.nvim_buf_get_option(bufnr, "filetype")
+      if ft == target_ft then
+        local fname = api.nvim_buf_get_name(bufnr)
+        if fname and fname ~= "" and fname ~= current_file then
+          local lines = api.nvim_buf_get_lines(bufnr, 0, -1, false)
+          table.insert(contents, string.format("File: %s\n%s", Utils.relative_path(fname), table.concat(lines, "\n")))
+        end
+      end
+    end
+  end
+
+  -- return tabl.concat(contents, "\n\n")
+  return contents
+end
+
 ---@param opts AskOptions
 function Sidebar:create_input(opts)
   if self.input then self.input:unmount() end

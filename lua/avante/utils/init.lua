@@ -665,7 +665,7 @@ end
 function M.is_first_letter_uppercase(str) return string.match(str, "^[A-Z]") ~= nil end
 
 ---@param content string
----@return { new_content: string, enable_project_context: boolean, enable_diagnostics: boolean }
+---@return { new_content: string, enable_project_context: boolean, enable_diagnostics: boolean, enable_buffer_context: boolean}
 function M.extract_mentions(content)
   -- if content contains @codebase, enable project context and remove @codebase
   local new_content = content
@@ -675,11 +675,19 @@ function M.extract_mentions(content)
     enable_project_context = true
     new_content = content:gsub("@codebase", "")
   end
+
   if content:match("@diagnostics") then enable_diagnostics = true end
+
+  if content:match("@buffers") then
+    enable_buffer_context = true
+    new_content = content:gsub("@buffers", "")
+  end
+
   return {
     new_content = new_content,
     enable_project_context = enable_project_context,
     enable_diagnostics = enable_diagnostics,
+    enable_buffer_context = enable_buffer_context,
   }
 end
 
@@ -698,6 +706,11 @@ function M.get_mentions()
       description = "diagnostics",
       command = "diagnostics",
       details = "diagnostics",
+    },
+    {
+      description = "buffers",
+      command = "buffers",
+      details = "gather context from open buffers",
     },
   }
 end
