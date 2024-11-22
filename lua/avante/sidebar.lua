@@ -1623,7 +1623,7 @@ function Sidebar:create_input(opts)
       winid = self.result.winid,
     },
     win_options = vim.tbl_deep_extend("force", base_win_options, { signcolumn = "yes", wrap = Config.windows.wrap }),
-    position = get_position(),
+    position = "bottom",
     size = get_size(),
   })
 
@@ -1641,6 +1641,34 @@ function Sidebar:create_input(opts)
   end
 
   self.input:mount()
+
+  self.controls = Split({
+    enter = false,
+    relative = {
+      type = "win",
+      winid = self.input.winid,
+    },
+    win_options = vim.tbl_deep_extend("force", base_win_options, {
+      signcolumn = "no",
+      foldcolumn = "0",
+      numberwidth = 1,
+      winfixheight = true, -- Keep the height fixed
+    }),
+    position = get_position(),
+    size = {
+      height = 1,
+    },
+  })
+
+  self.controls:mount()
+
+  -- Optional: Create autocmd to prevent focusing the footer
+  vim.api.nvim_create_autocmd("WinEnter", {
+    buffer = self.controls.bufnr,
+    callback = function()
+      vim.cmd("wincmd p") -- Go back to previous window
+    end,
+  })
 
   local function place_sign_at_first_line(bufnr)
     local group = "avante_input_prompt_group"
@@ -1661,6 +1689,7 @@ function Sidebar:create_input(opts)
   self.input:map("i", Config.mappings.submit.insert, on_submit)
 
   api.nvim_set_option_value("filetype", "AvanteInput", { buf = self.input.bufnr })
+  api.nvim_set_option_value("filetype", "AvanteControl", { buf = self.controls.bufnr })
 
   -- Setup completion
   api.nvim_create_autocmd("InsertEnter", {
@@ -1709,33 +1738,32 @@ function Sidebar:create_input(opts)
   local function show_hint()
     close_hint() -- Close the existing hint window
 
-    local hint_text = (vim.fn.mode() ~= "i" and Config.mappings.submit.normal or Config.mappings.submit.insert)
-      .. ": submit"
+    local submit_key = ""
+      .. (vim.fn.mode() ~= "i" and Config.mappings.submit.normal or Config.mappings.submit.insert)
+      .. " ➜ submit"
 
-    local buf = api.nvim_create_buf(false, true)
-    api.nvim_buf_set_lines(buf, 0, -1, false, { hint_text })
-    api.nvim_buf_add_highlight(buf, 0, "AvantePopupHint", 0, 0, -1)
+    local slash_key = "/ ➜ slash command"
+    local conext_key = "@ ➜ context command"
+    local hint_text = string.format(
+      "%s  %s  %s",
+      submit_key,
+      (vim.fn.mode() == "i" and slash_key or ""),
+      (vim.fn.mode() == "i" and conext_key or "")
+    )
 
-    -- Get the current window size
-    local win_width = api.nvim_win_get_width(self.input.winid)
-    local width = #hint_text
+    api.nvim_buf_set_lines(self.controls.bufnr, 0, -1, false, { "" })
 
-    -- Set the floating window options
-    local win_opts = {
-      relative = "win",
-      win = self.input.winid,
-      width = width,
-      height = 1,
-      row = get_float_window_row(),
-      col = math.max(win_width - width, 0), -- Display in the bottom right corner
-      style = "minimal",
-      border = "none",
-      focusable = false,
-      zindex = 100,
-    }
-
-    -- Create the floating window
-    hint_window = api.nvim_open_win(buf, false, win_opts)
+    api.nvim_buf_set_extmark(self.controls.bufnr, CODEBLOCK_KEYBINDING_NAMESPACE, 0, -1, {
+      virt_text = {
+        {
+          hint_text,
+          "AvanteInlineHint",
+        },
+      },
+      virt_text_pos = "right_align",
+      hl_group = "AvanteInlineHint",
+      priority = PRIORITY,
+    })
   end
 
   api.nvim_create_autocmd({ "TextChanged", "TextChangedI", "VimResized" }, {
