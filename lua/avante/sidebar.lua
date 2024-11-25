@@ -1664,6 +1664,7 @@ function Sidebar:create_input(opts)
 
   -- Optional: Create autocmd to prevent focusing the footer
   vim.api.nvim_create_autocmd("WinEnter", {
+    group = self.augroup,
     buffer = self.controls.bufnr,
     callback = function()
       vim.cmd("wincmd p") -- Go back to previous window
@@ -1750,6 +1751,8 @@ function Sidebar:create_input(opts)
       (vim.fn.mode() == "i" and slash_key or ""),
       (vim.fn.mode() == "i" and conext_key or "")
     )
+
+    if not self.controls and not api.nvim_win_is_valid(self.controls.winid) then return end
 
     api.nvim_buf_set_lines(self.controls.bufnr, 0, -1, false, { "" })
 
