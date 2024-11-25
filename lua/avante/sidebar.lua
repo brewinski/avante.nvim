@@ -16,6 +16,7 @@ local RepoMap = require("avante.repo_map")
 local RESULT_BUF_NAME = "AVANTE_RESULT"
 local VIEW_BUFFER_UPDATED_PATTERN = "AvanteViewBufferUpdated"
 local CODEBLOCK_KEYBINDING_NAMESPACE = api.nvim_create_namespace("AVANTE_CODEBLOCK_KEYBINDING")
+local CONTROLS_KEYBINDING_NAMESPACE = api.nvim_create_namespace("AVANTE_CODEBLOCK_KEYBINDING")
 local PRIORITY = vim.highlight.priorities.user
 
 ---@class avante.Sidebar
@@ -1393,8 +1394,6 @@ end
 
 local generating_text = "**Generating response ...**\n"
 
-local hint_window = nil
-
 ---@param opts AskOptions
 function Sidebar:create_input(opts)
   if self.input then self.input:unmount() end
@@ -1662,7 +1661,7 @@ function Sidebar:create_input(opts)
 
   self.controls:mount()
 
-  -- Optional: Create autocmd to prevent focusing the footer
+  -- Create autocmd to prevent focusing the footer
   vim.api.nvim_create_autocmd("WinEnter", {
     group = self.augroup,
     buffer = self.controls.bufnr,
@@ -1721,58 +1720,53 @@ function Sidebar:create_input(opts)
   })
 
   -- Close the floating window
-  local function close_hint()
-    if hint_window and api.nvim_win_is_valid(hint_window) then
-      api.nvim_win_close(hint_window, true)
-      hint_window = nil
-    end
-
+  local function reset_hint()
     -- unset the virtual text
-    if api.nvim_win_is_valid(self.controls.winid) then
-      -- api.nvim_notify("close\n\n\n\n\n\n\n\n", 1, {})
-      api.nvim_buf_set_lines(self.controls.bufnr, 0, -1, false, { "" })
-      api.nvim_buf_set_extmark(self.controls.bufnr, CODEBLOCK_KEYBINDING_NAMESPACE, 0, -1, {
-        virt_text = {
-          {
-            "",
-            "AvanteInlineHint",
-          },
-        },
-        virt_text_pos = "right_align",
-        hl_group = "AvanteInlineHint",
-        priority = PRIORITY,
-      })
+    if self.controls.winid and api.nvim_win_is_valid(self.controls.winid) then
+      -- Clear all extmarks in the namespace
+      api.nvim_buf_clear_namespace(self.controls.bufnr, CONTROLS_KEYBINDING_NAMESPACE, 0, -1)
     end
   end
 
-  local function get_float_window_row()
-    local win_height = vim.api.nvim_win_get_height(self.input.winid)
-    local winline = Utils.winline(self.input.winid)
-    if winline >= win_height - 1 then return 0 end
-    return winline
+  local function get_result_window_hints()
+    local next_codeblock = Config.mappings.jump.next .. " ➜ next codeblock"
+    local prev_codeblock = Config.mappings.jump.prev .. " ➜ prev codeblock"
+    local close_avante = "q/<ESC> ➜ close"
+
+    local hint_text = string.format("%s, %s, %s", next_codeblock, prev_codeblock, close_avante)
+
+    return hint_text
+  end
+
+  local function get_input_window_hints()
+    local submit_key = (vim.fn.mode() ~= "i" and Config.mappings.submit.normal or Config.mappings.submit.insert)
+      .. " ➜ submit"
+
+    local slash_key = "/ ➜ slash command"
+    local conext_key = "@ ➜ context command"
+    local hint_text = string.format(
+      "%s%s%s",
+      submit_key,
+      (vim.fn.mode() == "i" and ", " .. slash_key or ""),
+      (vim.fn.mode() == "i" and ", " .. conext_key or "")
+    )
+
+    return hint_text
   end
 
   -- Create a floating window as a hint
-  local function show_hint()
-    close_hint() -- Close the existing hint window
-
-    local submit_key = "["
-      .. (vim.fn.mode() ~= "i" and Config.mappings.submit.normal or Config.mappings.submit.insert)
-      .. " ➜ submit"
-      .. "]"
-
-    local slash_key = "[/ ➜ slash command]"
-    local conext_key = "[@ ➜ context command]"
-    local hint_text = string.format(
-      "%s  %s  %s",
-      submit_key,
-      (vim.fn.mode() == "i" and slash_key or ""),
-      (vim.fn.mode() == "i" and conext_key or "")
-    )
+  local function update_hint()
+    reset_hint() -- Close the existing hint window
 
     if not self.controls and not api.nvim_win_is_valid(self.controls.winid) then return end
 
-    api.nvim_buf_set_lines(self.controls.bufnr, 0, -1, false, { "" })
+    local hint_text = ""
+
+    if self.result and api.nvim_get_current_buf() == self.result.bufnr then
+      hint_text = get_result_window_hints()
+    elseif self.input and api.nvim_get_current_buf() == self.input.bufnr then
+      hint_text = get_input_window_hints()
+    end
 
     api.nvim_buf_set_extmark(self.controls.bufnr, CODEBLOCK_KEYBINDING_NAMESPACE, 0, -1, {
       virt_text = {
@@ -1781,7 +1775,6 @@ function Sidebar:create_input(opts)
           "AvanteInlineHint",
         },
       },
-      virt_text_pos = "right_align",
       hl_group = "AvanteInlineHint",
       priority = PRIORITY,
     })
@@ -1791,7 +1784,7 @@ function Sidebar:create_input(opts)
     group = self.augroup,
     buffer = self.input.bufnr,
     callback = function()
-      show_hint()
+      update_hint()
       place_sign_at_first_line(self.input.bufnr)
     end,
   })
@@ -1799,7 +1792,7 @@ function Sidebar:create_input(opts)
   api.nvim_create_autocmd("QuitPre", {
     group = self.augroup,
     buffer = self.input.bufnr,
-    callback = function() close_hint() end,
+    callback = function() reset_hint() end,
   })
 
   -- Show hint in insert mode
@@ -1808,7 +1801,7 @@ function Sidebar:create_input(opts)
     pattern = "*:i",
     callback = function()
       local cur_buf = api.nvim_get_current_buf()
-      if self.input and cur_buf == self.input.bufnr then show_hint() end
+      if self.input and cur_buf == self.input.bufnr then update_hint() end
     end,
   })
 
@@ -1818,17 +1811,20 @@ function Sidebar:create_input(opts)
     pattern = "i:*",
     callback = function()
       local cur_buf = api.nvim_get_current_buf()
-      if self.input and cur_buf == self.input.bufnr then show_hint() end
+      if self.input and cur_buf == self.input.bufnr then update_hint() end
     end,
   })
 
   api.nvim_create_autocmd("WinEnter", {
+    group = self.augroup,
     callback = function()
       local cur_win = api.nvim_get_current_win()
       if self.input and cur_win == self.input.winid then
-        show_hint()
+        update_hint()
+      elseif self.result and cur_win == self.result.winid then
+        update_hint()
       else
-        close_hint()
+        reset_hint()
       end
     end,
   })
