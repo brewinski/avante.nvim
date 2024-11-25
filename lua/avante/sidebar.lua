@@ -1726,6 +1726,23 @@ function Sidebar:create_input(opts)
       api.nvim_win_close(hint_window, true)
       hint_window = nil
     end
+
+    -- unset the virtual text
+    if api.nvim_win_is_valid(self.controls.winid) then
+      -- api.nvim_notify("close\n\n\n\n\n\n\n\n", 1, {})
+      api.nvim_buf_set_lines(self.controls.bufnr, 0, -1, false, { "" })
+      api.nvim_buf_set_extmark(self.controls.bufnr, CODEBLOCK_KEYBINDING_NAMESPACE, 0, -1, {
+        virt_text = {
+          {
+            "",
+            "AvanteInlineHint",
+          },
+        },
+        virt_text_pos = "right_align",
+        hl_group = "AvanteInlineHint",
+        priority = PRIORITY,
+      })
+    end
   end
 
   local function get_float_window_row()
@@ -1739,12 +1756,13 @@ function Sidebar:create_input(opts)
   local function show_hint()
     close_hint() -- Close the existing hint window
 
-    local submit_key = ""
+    local submit_key = "["
       .. (vim.fn.mode() ~= "i" and Config.mappings.submit.normal or Config.mappings.submit.insert)
       .. " ➜ submit"
+      .. "]"
 
-    local slash_key = "/ ➜ slash command"
-    local conext_key = "@ ➜ context command"
+    local slash_key = "[/ ➜ slash command]"
+    local conext_key = "[@ ➜ context command]"
     local hint_text = string.format(
       "%s  %s  %s",
       submit_key,
