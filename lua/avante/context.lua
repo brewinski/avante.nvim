@@ -1,4 +1,5 @@
 local scan = require("plenary.scandir")
+local config = require("avante.config")
 
 --- @class avante.Context
 local Context = {}
@@ -52,23 +53,22 @@ end
 
 ---@return nil
 function Context:add_context()
-  vim.schedule(function()
-    vim.ui.select(self.file_cache, {
-      prompt = "Add context:",
-      format_item = function(item) return item end,
-    }, function(choice)
-      if choice then
-        table.insert(self.context_files, choice)
-        self:on_update()
-      end
-    end)
-  end)
-
   -- unlist the current buffer as vim.ui.select will be listed
   local winid = vim.api.nvim_get_current_win()
   local bufnr = vim.api.nvim_win_get_buf(winid)
   vim.api.nvim_buf_set_option(bufnr, "buflisted", false)
   vim.api.nvim_buf_set_option(bufnr, "bufhidden", "wipe")
+
+  local picker = config.file_picker.picker or vim.ui.select
+  picker(self.file_cache, {
+    prompt = "Add context:",
+    format_item = function(item) return item end,
+  }, function(choice)
+    if choice then
+      table.insert(self.context_files, choice)
+      self:on_update()
+    end
+  end)
 end
 
 ---@param id integer

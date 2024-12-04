@@ -61,7 +61,6 @@ function mentions_source:execute(completion_item, callback)
 
   -- Execute the mention's callback if it exists
   if selected_mention and type(selected_mention.callback) == "function" then
-    selected_mention.callback(selected_mention)
     -- Get the current cursor position
     local row, col = unpack(api.nvim_win_get_cursor(0))
 
@@ -72,6 +71,9 @@ function mentions_source:execute(completion_item, callback)
     -- Adjust the cursor position if needed
     local new_col = math.min(col, #new_line)
     api.nvim_win_set_cursor(0, { row, new_col })
+
+    -- execute the callback for the selected item.
+    selected_mention.callback(selected_mention)
   end
 
   callback({ behavior = require("cmp").ConfirmBehavior.Insert })

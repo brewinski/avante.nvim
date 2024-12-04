@@ -234,6 +234,11 @@ M.defaults = {
     ignore_patterns = { "%.git", "%.worktree", "__pycache__", "node_modules" }, -- ignore files matching these
     negate_patterns = {}, -- negate ignore files matching these.
   },
+  --- @class AvanteFilePickerConfig
+  file_picker = {
+    --- @type fun(items: string[], opts: {prompt: string, format_item: function}, on_choice: function)
+    picker = nil, -- If nil, will use the default vim.ui.select
+  },
 }
 
 ---@type avante.Config
