@@ -102,10 +102,7 @@ function FileSelector:off(event, callback)
 end
 
 ---@return nil
-function FileSelector:open()
-  if Config.file_selector.provider == "native" then self:update_file_cache() end
-  self:show_select_ui()
-end
+function FileSelector:open() self:show_select_ui() end
 
 ---@return nil
 function FileSelector:update_file_cache()
@@ -187,6 +184,7 @@ end
 
 ---@type FileSelectorHandler
 function FileSelector:native_ui(handler)
+  self:update_file_cache()
   local filepaths = vim
     .iter(self.file_cache)
     :filter(function(filepath) return not vim.tbl_contains(self.selected_filepaths, filepath) end)
@@ -216,14 +214,26 @@ function FileSelector:show_select_ui()
   end
 
   vim.schedule(function()
-    if Config.file_selector.provider == "native" then
-      self:native_ui(handler)
-    elseif Config.file_selector.provider == "fzf" then
-      self:fzf_ui(handler)
-    elseif Config.file_selector.provider == "telescope" then
-      self:telescope_ui(handler)
+    local provider = Config.file_selector.provider
+
+    if provider == "auto" then
+      local has_telescope, _ = pcall(require, "telescope")
+      local has_fzf, _ = pcall(require, "fzf-lua")
+
+      provider = has_telescope and "telescope" or has_fzf and "fzf" or "native"
+    end
+
+    local providers = {
+      telescope = function() self:telescope_ui(handler) end,
+      fzf = function() self:fzf_ui(handler) end,
+      native = function() self:native_ui(handler) end,
+    }
+
+    local selected_provider = providers[provider]
+    if selected_provider then
+      selected_provider()
     else
-      Utils.error("Unknown file selector provider: " .. Config.file_selector.provider)
+      Utils.error("Unknown file selector provider: " .. provider)
     end
   end)
 
