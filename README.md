@@ -320,6 +320,71 @@ _See [config.lua#L9](./lua/avante/config.lua) for the full config_
 }
 ```
 
+## File Selection
+
+Avante provides flexible file selection capabilities with support for multiple UI providers. You can configure this in your setup:
+
+```lua
+require("avante").setup({
+  file_selector = {
+    -- Choose your preferred UI provider: "native", "telescope" or "fzf"
+    provider = "telescope",
+
+    -- Provider-specific options that override the default settings
+    provider_opts = {
+      -- Telescope-specific options
+      layout_strategy = "horizontal",
+      layout_config = {
+        width = 0.8,
+        height = 0.8,
+      },
+      -- Add any other telescope/fzf options here
+    }
+  }
+})
+```
+
+### File Selection Methods
+
+1. **Keyboard Shortcuts**:
+   - `<leader>ac`: Add current buffer to selected files
+   - `@`: Add new file (in sidebar)
+   - `d`: Remove file from selection (in sidebar)
+
+2. **UI Providers**:
+   - **Native**: Uses Neovim's built-in `vim.ui.select`
+   - **Telescope**: Full-featured fuzzy finder with file preview
+   - **FZF**: Fast fuzzy finder alternative
+
+3. **Provider-Specific Features**:
+   - Telescope: File preview, fuzzy search, custom layouts
+   - FZF: Lightweight, fast performance
+   - Native: No additional dependencies
+
+### Configuration Options
+
+```lua
+file_selector = {
+  -- UI provider selection
+  provider = "telescope", -- "native"|"telescope"|"fzf"
+
+  -- Override default provider settings
+  provider_opts = {
+    -- Telescope options
+    previewer = true,
+    layout_config = { ... },
+
+    -- FZF options
+    fzf_opts = { ... },
+
+    -- Common options
+    hidden = true,  -- Show hidden files
+    no_ignore = false,  -- Respect .gitignore
+  }
+}
+```
+
+
 ## Usage
 
 Given its early stage, `avante.nvim` currently supports the following basic functionalities:
